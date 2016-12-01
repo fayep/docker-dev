@@ -1,0 +1,75 @@
+#!/bin/bash
+HERE=$(dirname $0)
+
+find_our_container() {
+  local ctr_id=$(docker ps -qf status=running -f ancestor=${CTR_NAME}:${CTR_VERSION} -f "volume=${PWD_PATH}")
+  if [ -n "$ctr_id" ]; then
+    echo "$ctr_id"
+    return 0
+  else
+    return 1
+  fi
+}
+
+extract() {
+(base64 -d - | bzip2 -dc) > "$1" << EOT
+QlpoOTFBWSZTWb1q0hAAAIbfgEAQffPAHm5n346/7//uUANLVbw3Lru3bMGRCNSeJ6U9T2qe1EaA
+ADQPU09Q0GmQaaRimU8oyaJpPUfqmmgNBoAaGIDQaaFMTSm0mxJoxMgAAA0GgZA5piYCNMCMIwAA
+ABMIwEkUNBTbRENojTQAAAAZG1AU7Dp6zhrgEHnrpFCaGqGot+GDTJHpOoqZ+QrIDgJyg6nH6v96
+G8h2/wGHt1dnJbG2GIWudcI3axnGGUNseZXVTOFORdbMy/Yw2uLbP4xvrenPZK0139VzihQtBqd5
+h5HUXassWDYTkqxGvnlu/bvF6PWw9UsORlI3nK/Cj7tsYbWClxnTngrkbnWUUr3M79iYyCgIBU7w
+CaM6UAj2FkKA9Nm6PMHHtBBnAjBW51v4U9aAMvSm7Lj3/JN2gKAUmkx1gm4ZneGpwyW5Z876uXnc
+InaNl+Zkf25uNPWdQhQY6LtYgloPRaAOHxIO7MBsuOfF7UjicvSkHA1B9jBMfReleRWodkMwwp0r
+wkUgWmMlWBgYyE4FZYWjKwyJMJbCWEiBCFglr1JWJSlpKjCVJRrZDOlm8Mrs7A50G2ZypGbdmSPs
+PngrqpTmNQJOw/pwJnaTB16AG+v4qYNoHl9IH5xA0ihinqa5Gq8YSEgNEhukFAQHTKoNTRkFJIsZ
+FDlYTKV4oMxvxplZgE7h9PikrgV2xooeDlgYuwiO4C4VK2pKDjLUYZOxCgJsQQ91qV4TVZ3LlzwM
+DWmyTE5nAJFS85VNdWNABFAFDQvjB+5DKYnXTBO3jLRHDWIsA6ILct9AwFcqEjgBIOmK0G3ZBp5Q
+xBiiFO1guItWTXBlixSExTRnnkkHUsCAMdtdCEMBF2qBJchmQEKr3pFoIhGZVAcogPKFSMlCUZ5F
+kQUXeK5ptIB2DICtMgNMBurRRcPSCIwkUJkdVchuiW2igKMVPBKQDhmtbcAslCoEKisAZVF0Skhh
+i0vG4KkiMYkMw0tSk4ZKmIbXBhvmMdFveF7itSCM2QONMc5zQpF71xlRlEahNEEAVd6ACCitNXWa
+JPRE5pAxJmqmPey4jWgYI2oW2CAdvB9OmDggxYkNqBhFIfYqzLWZgdBJGpYn4v0J2Wx2d8p87A8I
+GBD/i7kinChIXrVpCAA=
+EOT
+chmod +x "$1"
+}
+
+case $1 in
+install)
+  if [ -n "$3" ]; then
+    if [ -x "${HERE}/$2" -a ! -L "${HERE}/$2" ]; then
+      ln -sf $2 "${HERE}/$3"
+    else
+      echo >&2 "$2 container not installed"
+    fi
+  else
+    mkdir -p "$(dirname ${HERE}/$2)"
+    extract "${HERE}/$2"
+  fi
+  ;;
+stop)
+  CTR_NAME="$2"
+  if [ -f .${CTR_NAME}_version ]; then
+    CTR_VERSION="$(<.${CTR_NAME}_version)"
+  fi
+  CTR_VERSION="${CTR_VERSION#${CTR_NAME}-}"
+  CTR_VERSION="${CTR_VERSION:-latest}"
+  PWD_PATH="${PWD//${WINDOWS_HOME}*}"
+  PWD_PATH="${PWD_PATH:-${WINDOWS_HOME}}"
+  INSTANCE=$(find_our_container)
+  if [ $? -eq 0 ]; then
+    docker stop $INSTANCE
+    docker rm $INSTANCE
+  fi
+  ;;
+*)
+  CTR_NAME="$1"
+  if [ -f .${CTR_NAME}_version ]; then
+    CTR_VERSION="$(<.${CTR_NAME}_version)"
+  fi
+  CTR_VERSION="${CTR_VERSION#${CTR_NAME}-}"
+  CTR_VERSION="${CTR_VERSION:-latest}"
+  PWD_PATH="${PWD//${WINDOWS_HOME}*}"
+  PWD_PATH="${PWD_PATH:-${WINDOWS_HOME}}"
+  find_our_container
+  ;;
+esac
